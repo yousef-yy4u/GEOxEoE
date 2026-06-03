@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EOE × Environment — Ontario Atlas
 
-## Getting Started
+A research tool exploring **township-level** associations between eosinophilic
+esophagitis (EoE) incidence and environmental exposures across **Ontario**,
+rendered on an interactive **3D globe**. Built with Next.js (App Router) +
+TypeScript + Tailwind v3, themed with the **Malachite & Ink** design system
+(light "Atrium" default, dark "Obsidian").
 
-First, run the development server:
+**All data is synthetic** — a faithful, declared fixture for building and
+demonstrating the analysis machinery, not real Ontario epidemiology. Do not cite.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Run
+
+```powershell
+cd frontend
+npm install
+npm run dev      # http://localhost:3000  (or: npm run build && npm start)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+One process serves the UI and the API — no separate backend to start.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend** — `src/app/page.tsx` → `src/components/atlas.tsx` orchestrates a
+  full-screen `globe-atlas.tsx` (globe.gl / three.js) with on-globe expanding
+  circle controls, a centered 80% summary, and 3D tilt cards (`tilt-card.tsx`).
+- **API routes** (`src/app/api/*`) — self-contained, no external server:
+  - `panel` — deterministic synthetic data for 577 Ontario census subdivisions.
+  - `stats` — scipy-validated Pearson / OLS / partial correlation.
+  - `views` + `views/[id]` — shareable saved views (short-id, file persistence).
+  - `annotations` — team notes pinned to a township.
+- **Data engine** — `src/lib/synthetic.ts` (seeded, 3-yr exposure→dx lag fixture,
+  diagnostic-access confounder, zero-weight nulls), `src/lib/stats.ts`
+  (ported from the scipy-validated JS), `src/lib/analysis.ts` (live compute).
+- **Geography** — `public/data/ontario-townships.geojson`: Ontario CSDs from the
+  Statistics Canada 2021 cartographic boundary file (`PRUID=35`), reprojected to
+  WGS84 and simplified via mapshaper (see `../data-pipeline/`).
 
-## Learn More
+## Features (all 12, ported + globe)
 
-To learn more about Next.js, take a look at the following resources:
+Real Pearson r/p/95% CI · scatter + OLS · normalize by diagnostic access ·
+partial correlation · exposure lag + pooled lag-profile (recovers the built-in
+3-yr lag) · weak/null flagging · shareable views · annotations · CSV/PNG/methods
+export · grounded summary (cites stats, no causation) · provenance · time window.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tests
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```powershell
+npx tsx scripts/verify-data.mts   # seed/null-stability + lag-fixture check
+node scripts/smoke-next.mjs        # headless: globe renders, no console errors, theme toggle
+```
 
-## Deploy on Vercel
+## Honesty notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Synthetic fixture; the methods-note export states the built-in 3-yr lag.
+- The lag *profile* uses a pooled state-year estimator (point estimates, no
+  p-value — pooled obs are autocorrelated); the map correlations are the
+  conservative cross-sectional estimate.
+- Cohort sliders are flagged UI placeholders — not wired to microdata.
+- EoE diagnosis is access-confounded; the normalize toggle demonstrates it.

@@ -1,49 +1,181 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  :root,
+  :root[data-theme="light"] {
+    /* Atrium — light */
+    --bg:              140 16% 96%;    /* #F4F7F5 */
+    --surface:         120 14% 99%;    /* #FBFCFB */
+    --surface-alt:     146 16% 91%;    /* #E5ECE8 */
+    --border:          144 10% 80%;    /* #C7D1CB */
+    --text:            156 17% 11%;    /* #18221E */
+    --text-muted:      156 7% 40%;     /* #5F6E68 */
+    --primary:         172 84% 32%;    /* #0D9482 */
+    --primary-hover:   172 92% 19%;    /* #045D51 */
+    --primary-foreground: 38 56% 97%;
+    --accent:          259 30% 55%;    /* #7F69AE */
+    --tertiary:        209 60% 44%;    /* #2D73B4 */
+    --success:         172 77% 38%;    /* #16AB98 */
+    --warning:         35 71% 57%;     /* #DF9F45 */
+    --danger:          0  49% 55%;     /* #C55656 */
+
+    /* Lighting knobs — single numbers that tune whole-app effects */
+    --hover-grad-alpha:   0.15;  /* tri-tone hover wash strength */
+    --crest-alpha:        0.35;  /* badge/crest tint strength */
+    --search-wash-alpha:  0.06;  /* search-pill fill strength */
+    --search-border-alpha:0.2;   /* search-pill gradient outline strength */
+
+    /* Tri-tone pastel GLOW (rgb channels) — drives every shadow/halo in the app.
+       lapis-blue → rose-pink → mint. Tune these three to recolour all glows. */
+    --glow-a: 171 201 233; /* #abc9e9 lapis  */
+    --glow-b: 245 191 215; /* #f5bfd7 rose   */
+    --glow-c: 202 239 215; /* #caefd7 jade   */
   }
-}
 
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+  :root[data-theme="dark"] {
+    /* Obsidian — dark */
+    --bg:              220 43% 3%;     /* #04060A */
+    --surface:         220 33% 5%;     /* #090C12 */
+    --surface-alt:     217 30% 8%;     /* #0F141C */
+    --border:          215 26% 14%;    /* #1B232E */
+    --text:            210 35% 93%;    /* #E8EEF4 */
+    --text-muted:      213 9% 52%;     /* #79838F */
+    --primary:         172 75% 52%;    /* #27E0C6 */
+    --primary-hover:   171 81% 69%;    /* #6FF0DD */
+    --primary-foreground: 220 43% 3%;
+    --accent:          189 79% 58%;    /* #3FD0E8 */
+    --tertiary:        202 41% 39%;    /* #3A6E8C */
+    --success:         172 75% 52%;    /* #27E0C6 */
+    --warning:         36 75% 64%;     /* #E8B05E */
+    --danger:          0  58% 65%;     /* #D97070 */
+    /* NOTE: dark intentionally inherits the light --glow-a/b/c pastel trio. */
   }
+
+  * { @apply border-border; }
+  /* hide scrollbars platform-wide (still scrollable) */
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+  html, body { height: 100%; }
+  body { @apply bg-bg text-text font-sans antialiased; }
+  h1, h2, h3, h4 { @apply font-sans font-bold tracking-tight; }
+  ::selection { background: hsl(var(--primary) / .25); color: hsl(var(--text)); }
+}
+
+@layer utilities {
+  /* Tri-tone pastel hover wash (replaces flat hovers app-wide) */
+  .hover-gradient { transition: background-color .2s ease, background-image .2s ease; }
+  .hover-gradient:hover {
+    background-image: linear-gradient(135deg,
+      rgb(171 201 233 / var(--hover-grad-alpha)) 0%,
+      rgb(245 191 215 / var(--hover-grad-alpha)) 50%,
+      rgb(202 239 215 / var(--hover-grad-alpha)) 100%);
+  }
+  /* Persistent version for selected/active rows */
+  .gradient-wash {
+    background-image: linear-gradient(135deg,
+      rgb(171 201 233 / var(--hover-grad-alpha)) 0%,
+      rgb(245 191 215 / var(--hover-grad-alpha)) 50%,
+      rgb(202 239 215 / var(--hover-grad-alpha)) 100%);
+  }
+  /* Search pill: faint pastel fill on surface, held inside the Aurora arc border */
+  .search-wash {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(135deg,
+        rgb(171 201 233 / var(--search-wash-alpha)) 0%,
+        rgb(245 191 215 / var(--search-wash-alpha)) 50%,
+        rgb(202 239 215 / var(--search-wash-alpha)) 100%) padding-box,
+      linear-gradient(hsl(var(--surface)), hsl(var(--surface))) padding-box,
+      linear-gradient(135deg,
+        rgb(128 209 199 / var(--search-border-alpha)) 0%,
+        rgb(22 171 152 / var(--search-border-alpha)) 50%,
+        rgb(127 105 174 / var(--search-border-alpha)) 100%) border-box;
+  }
+  /* 1px gradient border (Aurora arc) over a solid surface fill — works on pills */
+  .gradient-border {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(hsl(var(--surface)), hsl(var(--surface))) padding-box,
+      linear-gradient(135deg, #80D1C7 0%, #16AB98 50%, #7F69AE 100%) border-box;
+  }
+  /* Glasshouse — jade→iris halo/bloom */
+  .gradient-gilded { background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))); }
+  /* Aurora — signature green→iris arc (CTA pulse, success reveal) */
+  .gradient-emberlight { background-image: linear-gradient(135deg, #80D1C7 0%, #16AB98 50%, #7F69AE 100%); }
+  /* Patina — lapis→jade (data surfaces) */
+  .gradient-patina { background-image: linear-gradient(135deg, hsl(var(--tertiary)), hsl(var(--primary))); }
+  /* Bloom — pastel aqua→mint→orchid (badges/crests), opacity via --crest-alpha */
+  .gradient-bloom {
+    background-image: linear-gradient(135deg,
+      rgb(202 242 239 / var(--crest-alpha)) 0%,   /* #caf2ef */
+      rgb(201 239 220 / var(--crest-alpha)) 50%,  /* #c9efdc */
+      rgb(242 187 241 / var(--crest-alpha)) 100%);/* #f2bbf1 */
+  }
+  /* Atrium-mesh — animated 4-point hero mesh (pair with animate-drift) */
+  .gradient-atelier-mesh {
+    background-image:
+      radial-gradient(ellipse at 0% 0%,    hsl(var(--primary) / .35), transparent 50%),
+      radial-gradient(ellipse at 100% 0%,  hsl(var(--accent) / .30),  transparent 50%),
+      radial-gradient(ellipse at 0% 100%,  hsl(var(--tertiary) / .25),transparent 50%),
+      radial-gradient(ellipse at 100% 100%,hsl(var(--bg)),            transparent 50%);
+  }
+  /* Mist — frosted modal/backdrop scrim */
+  .smoke-scrim {
+    background: linear-gradient(hsl(var(--primary) / .06), hsl(var(--accent) / .04));
+    backdrop-filter: blur(24px);
+  }
+  /* Glow halo on a card/element */
+  .brass-halo {
+    box-shadow:
+      0 12px 30px -14px rgb(var(--glow-a) / .55),
+      0 16px 36px -18px rgb(var(--glow-b) / .45),
+      0 20px 40px -20px rgb(var(--glow-c) / .45);
+  }
+  /* Focus ring */
+  .ring-brass:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(var(--primary) / .25); }
+
+  /* Scrollable but no visible scrollbar */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Ontario choropleth: townships float on a pastel glow on hover.
+     Overlay copies are pointer-events:none and scale in place (no translate),
+     so the interactive base path underneath keeps hit-testing — no flicker, no
+     cursor-gap. The floating illusion comes from the glow, as intended. */
+  .twp { transition: fill .25s ease, opacity .2s ease; cursor: pointer; }
+  .twp-float {
+    transform-box: fill-box;
+    transform-origin: center;
+    pointer-events: none;
+    animation: twp-pop .18s ease-out forwards;
+    filter:
+      drop-shadow(0 7px 10px rgb(245 191 215 / .85))
+      drop-shadow(0 16px 28px rgb(171 201 233 / .60))
+      drop-shadow(0 2px 5px rgb(202 239 215 / .70));
+  }
+  .twp-selected {
+    transform-box: fill-box;
+    transform-origin: center;
+    pointer-events: none;
+    transform: scale(1.035);
+    filter:
+      drop-shadow(0 6px 10px rgb(127 105 174 / .60))
+      drop-shadow(0 14px 24px rgb(171 201 233 / .50));
+  }
+
+  /* Typography helpers */
+  .title-1 { @apply font-sans font-bold tracking-tight text-5xl; }
+  .title-2 { @apply font-sans font-bold tracking-tight text-4xl; }
+  .title-3 { @apply font-sans font-bold tracking-tight text-3xl; }
+  .body-text     { @apply font-sans font-medium text-base; }
+  .text-semibold { @apply font-sans font-semibold text-lg; }
+  .text-bold     { @apply font-sans font-bold text-lg; }
+  .editorial     { @apply font-sans tracking-tight font-bold; }
+}
+
+@keyframes twp-pop {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-8%) scale(1.07); }
 }

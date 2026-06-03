@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local JSON persistence (ephemeral; not for VCS)
+/.data/
+
+# dev screenshots / logs from scripts/
+/scripts/*.png
+/scripts/*.log
