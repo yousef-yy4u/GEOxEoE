@@ -15,7 +15,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EOE × Environment — Ontario Atlas",
+  title: "GEO x EoE — Ontario Atlas",
   description:
     "Township-level associations between eosinophilic esophagitis incidence and environmental exposures across Ontario. Synthetic prototype.",
 };

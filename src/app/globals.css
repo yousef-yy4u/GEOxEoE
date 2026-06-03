@@ -93,6 +93,19 @@
         rgb(22 171 152 / var(--search-border-alpha)) 50%,
         rgb(127 105 174 / var(--search-border-alpha)) 100%) border-box;
   }
+  /* Gradient border + faint tri-tone wash fill (keeps text legible, no solid
+     accent border). Layers: wash (top) over opaque surface in the padding box,
+     Aurora gradient in the border box. */
+  .menu-edge {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(135deg,
+        rgb(171 201 233 / var(--hover-grad-alpha)) 0%,
+        rgb(245 191 215 / var(--hover-grad-alpha)) 50%,
+        rgb(202 239 215 / var(--hover-grad-alpha)) 100%) padding-box,
+      linear-gradient(hsl(var(--surface)), hsl(var(--surface))) padding-box,
+      linear-gradient(135deg, #80D1C7 0%, #16AB98 50%, #7F69AE 100%) border-box;
+  }
   /* 1px gradient border (Aurora arc) over a solid surface fill — works on pills */
   .gradient-border {
     border: 1px solid transparent;

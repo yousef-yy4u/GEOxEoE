@@ -325,14 +325,14 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-bg">
-      {/* first screen — header + full-bleed map (everything below scrolls into view) */}
-      <div className="flex h-screen flex-col">
+    <div className="relative flex min-h-screen w-full flex-col bg-bg p-4">
+      {/* first screen — header + map (everything below scrolls into view) */}
+      <div className="flex h-[calc(100vh-2rem)] flex-col">
       {/* header */}
-      <header className="z-40 flex shrink-0 items-center justify-between gap-6 px-6 py-3">
+      <header className="z-40 flex shrink-0 items-center justify-between gap-6 pb-3">
         <div className="brass-halo rounded-lg bg-surface px-6 py-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">Ontario · synthetic prototype</p>
-          <h1 className="title-3 mt-1 text-text">EOE × Environment</h1>
+          <h1 className="title-3 mt-1 text-text">GEO x EoE</h1>
         </div>
         <div className="flex items-center gap-4">
           <button onClick={share} className="ring-brass shadow-brass flex items-center gap-2 rounded-full bg-surface px-6 py-4 text-sm font-semibold text-text transition-colors hover:text-primary">
@@ -346,8 +346,8 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
 
       {/* full-bleed map stage; everything else floats over it */}
       <main className="relative min-h-0 flex-1">
-        {/* MAP — fills the whole stage, no card */}
-        <div className="absolute inset-0">
+        {/* MAP — fills the stage; rounded + clipped so the page padding frames it */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl">
           <OntarioMap features={features} colorFor={colorFor} labelHtmlFor={labelFor} selectedId={selectedId} theme={theme} onSelect={setSelectedId} introKey={introKey} />
         </div>
 
@@ -525,7 +525,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       </div>{/* end first screen (header + map) */}
 
       {/* BELOW THE MAP — analysis summary + scatter & fit, not on the canvas */}
-      <section className="grid grid-cols-1 items-start gap-7 px-6 py-8 lg:grid-cols-[minmax(360px,560px)_minmax(0,760px)]">
+      <section className="grid grid-cols-1 items-start gap-7 py-8 lg:grid-cols-[minmax(360px,560px)_minmax(0,1fr)]">
           {/* ANALYSIS SUMMARY — height hugs its text */}
           <TiltCard intensity={3} className="w-full p-7" contentClassName="flex flex-col">
           <button
@@ -564,12 +564,12 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         </TiltCard>
 
           {/* SCATTER & FIT — plain card (no tilt) so zoom/pan stay accurate */}
-          <div className="brass-halo flex h-[452px] w-full flex-col rounded-lg bg-surface p-5">
+          <div className="brass-halo ml-auto flex h-[452px] w-full max-w-[800px] flex-col rounded-lg bg-surface p-5">
             <div className="mb-3 flex items-center justify-between gap-4">
               <h4 className="text-semibold text-text">Scatter &amp; fit</h4>
               {/* open-on-hover factor menu */}
               <div className="group relative after:absolute after:left-0 after:top-full after:h-3 after:w-full after:content-['']">
-                <button type="button" className="gradient-wash flex items-center gap-2 rounded-md border border-primary/30 px-3.5 py-2 text-[12.5px] font-medium text-primary transition-colors hover:border-primary/50">
+                <button type="button" className="menu-edge flex items-center gap-2 rounded-md px-3.5 py-2 text-[12.5px] font-medium text-text transition-colors">
                   {factorById(s.scatter).name}
                   <svg className="transition-transform duration-200 group-hover:rotate-180" width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
