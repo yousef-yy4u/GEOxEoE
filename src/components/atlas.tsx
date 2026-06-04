@@ -182,15 +182,6 @@ export function Atlas() {
   const onUploadFile = useCallback((file: File) => {
     file.text().then((t) => ingest(t, file.name.replace(/\.[^.]+$/, "")));
   }, [ingest]);
-  const onApi = useCallback((url: string, key: string) => {
-    setDataReport("Fetching…");
-    let label = "api"; try { label = new URL(url).hostname; } catch { /* keep default */ }
-    fetch(url, key ? { headers: { Authorization: `Bearer ${key}` } } : undefined)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-      .then((t) => ingest(t, label))
-      .catch((e) => { const m = `API fetch failed: ${e.message}`; setDataReport(m); showToast(m); });
-  }, [ingest, showToast]);
-
   // ---- boot: theme, panel, geojson, shared view ----
   useEffect(() => {
     const stored = (localStorage.getItem("theme") as Theme) ?? "light";
@@ -413,7 +404,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-bg px-12 py-6">
+    <div className="relative flex min-h-screen w-full flex-col bg-bg px-8 py-6">
       {/* first screen — header + map (everything below scrolls into view) */}
       <div className="flex h-[calc(100vh-3rem)] flex-col">
       {/* header */}
@@ -510,7 +501,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
           <Range label="Severity ≥" value={s.sev} min={0} max={3} display={["any", "mild", "moderate", "severe"][s.sev]} onChange={(v) => set("sev", v)} />
         </ExpandingControl>
 
-        <ExpandingControl icon={I.data} label="Data provenance" side="right" className="pointer-events-auto">
+        <ExpandingControl icon={I.data} label="Data provenance" side="right" className="pointer-events-auto" panelClassName="w-[420px]">
           <DataPanel
             factors={panel.factors.map((f) => ({
               id: f.id, name: f.name,
@@ -520,7 +511,6 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             onRename={renameFactor}
             onDelete={deleteFactor}
             onUpload={onUploadFile}
-            onApi={onApi}
             report={dataReport}
           />
         </ExpandingControl>
@@ -609,9 +599,9 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       </div>{/* end first screen (header + map) */}
 
       {/* BELOW THE MAP — summary + scatter sit directly on the background (no cards) */}
-      <section className="grid grid-cols-1 items-start gap-6 pb-10 pt-24 lg:grid-cols-2 lg:gap-14">
+      <section className="grid grid-cols-1 items-start gap-6 pb-10 pt-24 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
           {/* ANALYSIS SUMMARY — no card, just text on the background */}
-          <div className="relative flex w-full flex-col">
+          <div className="relative flex w-full flex-col lg:pl-8">
           <button
             onClick={copySummary}
             aria-label="Copy summary"
@@ -648,7 +638,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         </div>
 
           {/* SCATTER & FIT — no card; chart sits on the background */}
-          <div className="flex h-[452px] w-full flex-col">
+          <div className="flex h-[452px] w-full flex-col lg:pr-8">
             <div className="mb-3 flex items-center justify-between gap-4">
               <h4 className="text-semibold text-text">Scatter &amp; fit</h4>
               {/* open-on-hover factor menu */}

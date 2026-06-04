@@ -11,6 +11,8 @@ const OVERSCROLL = 0.18; // how far past the edges a pan may drift
 
 interface ViewBox { x: number; y: number; w: number; h: number }
 const FULL: ViewBox = { x: 0, y: 0, w: VBW, h: VBH };
+// Default framing the map opens to (captured via the "Copy view" helper).
+const DEFAULT_VIEW: ViewBox = { x: 539.3, y: 574.6, w: 324.2, h: 278.8 };
 
 // Keep the aspect locked (so the "meet" projection never distorts) and stop
 // pans/zooms from flinging the map off into empty space.
@@ -85,7 +87,7 @@ export function OntarioMap({
 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
-  const [vb, setVb] = useState<ViewBox>(FULL);
+  const [vb, setVb] = useState<ViewBox>(DEFAULT_VIEW);
   const [dragging, setDragging] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -172,7 +174,7 @@ export function OntarioMap({
   }
 
   // reset the view whenever the intro replays
-  useEffect(() => { setVb(FULL); }, [introKey]);
+  useEffect(() => { setVb(DEFAULT_VIEW); }, [introKey]);
 
   // Wheel-zoom (toward cursor) + drag-pan. Listeners are bound to the *wrap*
   // (which never remounts) — the <svg> remounts on introKey, so binding there
@@ -276,8 +278,8 @@ export function OntarioMap({
         )}
       </svg>
 
-      {/* zoom controls (bottom-left of the map) */}
-      <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1.5">
+      {/* zoom controls (bottom-left of the map) — centered under the control rail above (48px buttons at left-4 → center 40px; these 36px buttons need left 22px) */}
+      <div className="absolute bottom-3 left-[22px] z-10 flex flex-col gap-1.5">
         {[
           { label: "Zoom in", glyph: "+", on: () => zoomCentered(1.4) },
           { label: "Zoom out", glyph: "−", on: () => zoomCentered(1 / 1.4) },

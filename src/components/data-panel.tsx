@@ -14,19 +14,17 @@ interface Props {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onUpload: (file: File) => void;
-  onApi: (url: string, key: string) => void;
   report: string | null;
 }
 
 /* Tabbed data manager that lives inside the (pinned) Data provenance control.
    Tab 1 lists every dataset — rename or remove. Tab 2 adds your own data by file
-   or API. Note: this is prototype state — datasets live for the session only. */
-export function DataPanel({ factors, onRename, onDelete, onUpload, onApi, report }: Props) {
+   upload. Note: this is prototype state — datasets live for the session only. */
+export function DataPanel({ factors, onRename, onDelete, onUpload, report }: Props) {
   const [tab, setTab] = useState<"sources" | "add">("sources");
   const [editId, setEditId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [url, setUrl] = useState("");
-  const [key, setKey] = useState("");
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const commit = () => { if (editId && draft.trim()) onRename(editId, draft.trim()); setEditId(null); };
@@ -74,35 +72,31 @@ export function DataPanel({ factors, onRename, onDelete, onUpload, onApi, report
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 text-[11.5px]">
-          <div>
-            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.json" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }} />
-            <button type="button" onClick={() => fileRef.current?.click()}
-              className="ring-brass hover-gradient w-full rounded-md bg-surface-alt px-3 py-2.5 text-left text-text">
-              ⬆ Upload a file (CSV / JSON)
-            </button>
-            <p className="mt-1.5 leading-snug text-text-muted">
-              Needs a <span className="text-text">township_id</span> (CSD code, e.g. <span className="font-mono">3501005</span>)
-              or <span className="text-text">name</span> column, plus a value (and optional year).
-            </p>
-          </div>
+        <div className="flex flex-col gap-3 text-[12px]">
+          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.json" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }} />
 
-          <div className="border-t border-border/60 pt-3">
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.example.com/exposures.json"
-              className="ring-brass mb-1.5 w-full rounded-md bg-surface-alt px-2.5 py-2 text-text placeholder:text-text-muted" />
-            <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="API key (optional)"
-              className="ring-brass mb-1.5 w-full rounded-md bg-surface-alt px-2.5 py-2 text-text placeholder:text-text-muted" />
-            <button type="button" disabled={!url.trim()} onClick={() => onApi(url.trim(), key.trim())}
-              className="ring-brass w-full rounded-md bg-primary px-3 py-2 font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-40">
-              Fetch from API
-            </button>
-            <p className="mt-1.5 leading-snug text-text-muted">
-              The endpoint must return data in the schema above. Arbitrary third-party APIs need a per-source adapter.
-            </p>
-          </div>
+          <button type="button"
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) onUpload(f); }}
+            className={`ring-brass flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-7 text-center transition-colors ${
+              dragging ? "border-primary bg-primary/10" : "border-border bg-surface-alt hover:border-primary/60 hover:bg-surface"
+            }`}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+              <path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3" />
+            </svg>
+            <span className="font-medium text-text">Drop a file here, or <span className="text-primary">browse</span></span>
+            <span className="text-[11px] text-text-muted">CSV, TSV, or JSON · up to one file</span>
+          </button>
 
-          {report && <p className="rounded-md bg-accent/10 px-2.5 py-2 leading-snug text-text">{report}</p>}
+          <p className="leading-relaxed text-text-muted">
+            Needs a <span className="font-medium text-text">township_id</span> (CSD code, e.g. <span className="font-mono text-text">3501005</span>)
+            or <span className="font-medium text-text">name</span> column, plus a value column (and an optional year).
+          </p>
+
+          {report && <p className="rounded-md bg-accent/10 px-3 py-2 leading-snug text-text">{report}</p>}
         </div>
       )}
     </div>
