@@ -413,7 +413,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-bg p-6">
+    <div className="relative flex min-h-screen w-full flex-col bg-bg px-12 py-6">
       {/* first screen — header + map (everything below scrolls into view) */}
       <div className="flex h-[calc(100vh-3rem)] flex-col">
       {/* header */}
@@ -609,7 +609,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       </div>{/* end first screen (header + map) */}
 
       {/* BELOW THE MAP — summary + scatter sit directly on the background (no cards) */}
-      <section className="grid grid-cols-1 items-start gap-6 px-3 pb-10 pt-24 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14">
+      <section className="grid grid-cols-1 items-start gap-6 pb-10 pt-24 lg:grid-cols-2 lg:gap-14">
           {/* ANALYSIS SUMMARY — no card, just text on the background */}
           <div className="relative flex w-full flex-col">
           <button
