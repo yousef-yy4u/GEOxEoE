@@ -440,7 +440,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         </div>
 
         {/* control rail — vertical, left edge (pointer-events let map gaps stay live) */}
-        <div className="pointer-events-none absolute left-4 top-4 z-30 flex flex-col gap-3">
+        <div className="pointer-events-none absolute left-4 top-16 z-30 flex flex-col gap-3">
         <ExpandingControl icon={I.layers} label="Environmental factors" badge={`${s.active.length} active`} side="right" className="pointer-events-auto">
           <div className="flex flex-col gap-2">
             {panel.factors.map((f) => {
@@ -609,7 +609,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       </div>{/* end first screen (header + map) */}
 
       {/* BELOW THE MAP — summary + scatter sit directly on the background (no cards) */}
-      <section className="grid grid-cols-1 items-start gap-6 px-3 pb-10 pt-14 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)]">
+      <section className="grid grid-cols-1 items-start gap-6 px-3 pb-10 pt-24 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14">
           {/* ANALYSIS SUMMARY — no card, just text on the background */}
           <div className="relative flex w-full flex-col">
           <button
@@ -652,7 +652,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             <div className="mb-3 flex items-center justify-between gap-4">
               <h4 className="text-semibold text-text">Scatter &amp; fit</h4>
               {/* open-on-hover factor menu */}
-              <div className="group relative after:absolute after:left-0 after:top-full after:h-3 after:w-full after:content-['']">
+              <div className="group relative mt-1.5 after:absolute after:left-0 after:top-full after:h-3 after:w-full after:content-['']">
                 <button type="button" className="menu-edge flex items-center gap-2 rounded-md px-3.5 py-2 text-[12.5px] font-medium text-text transition-colors">
                   {factorById(s.scatter).name}
                   <svg className="transition-transform duration-200 group-hover:rotate-180" width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>

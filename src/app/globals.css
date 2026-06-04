@@ -96,8 +96,14 @@
   /* Gradient border + faint tri-tone wash fill (keeps text legible, no solid
      accent border). Layers: wash (top) over opaque surface in the padding box,
      Aurora gradient in the border box. */
+  /* Borderless by default; the gradient border + wash reveal on hover (the 1px
+     transparent border is always present so there's no layout shift). */
   .menu-edge {
     border: 1px solid transparent;
+    background: transparent;
+    transition: background .15s ease;
+  }
+  .menu-edge:hover {
     background:
       linear-gradient(135deg,
         rgb(171 201 233 / var(--hover-grad-alpha)) 0%,
