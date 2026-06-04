@@ -3,14 +3,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OntarioMap } from "./ontario-map";
 import type { GlobeFeature } from "./globe-atlas";
-import { TiltCard } from "./tilt-card";
 import { ExpandingControl } from "./expanding-control";
 import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
+import { DataPanel } from "./data-panel";
 import {
   recompute, compositeFor, dominantFor, incidenceFor, heatColor, percentileRange, sigStars,
   type Settings,
 } from "@/lib/analysis";
+import { parseDataset } from "@/lib/ingest";
 import type { Panel } from "@/lib/synthetic";
+
+interface CustomDataset {
+  id: string; name: string; color: string; source: string; units: string; status: string;
+  series: Record<string, number[]>; // regionId -> per-year values (z-standardised)
+}
+
+/* Merge uploaded datasets into the panel and apply rename/delete overrides.
+   Region series are only re-cloned when there are custom datasets to inject. */
+function augmentPanel(
+  base: Panel,
+  customs: CustomDataset[],
+  overrides: Record<string, { name?: string; deleted?: boolean }>,
+): Panel {
+  const factors = [
+    ...base.factors,
+    ...customs.map((d) => ({ id: d.id, name: d.name, hint: d.source, color: d.color, in_model: false })),
+  ]
+    .filter((f) => !overrides[f.id]?.deleted)
+    .map((f) => (overrides[f.id]?.name ? { ...f, name: overrides[f.id]!.name! } : f));
+
+  const provenance = { ...base.provenance };
+  for (const d of customs)
+    provenance[d.id] = { source: d.source, units: d.units, resolution: "user upload → township", vintage: "—", status: d.status };
+
+  let regions = base.regions;
+  if (customs.length) {
+    regions = {};
+    for (const id in base.regions) {
+      const r = base.regions[id];
+      const series = { ...r.series };
+      for (const d of customs) if (d.series[id]) series[d.id] = d.series[id];
+      regions[id] = { ...r, series };
+    }
+  }
+  return { ...base, factors, provenance, regions };
+}
 
 type Theme = "light" | "dark";
 
@@ -84,17 +121,30 @@ const I = {
 interface Anno { id: number; region: string; body: string; author: string | null; created: string }
 
 export function Atlas() {
-  const [panel, setPanel] = useState<Panel | null>(null);
+  const [basePanel, setBasePanel] = useState<Panel | null>(null);
+  const [customDatasets, setCustomDatasets] = useState<CustomDataset[]>([]);
+  const [overrides, setOverrides] = useState<Record<string, { name?: string; deleted?: boolean }>>({});
+  const [dataReport, setDataReport] = useState<string | null>(null);
   const [features, setFeatures] = useState<GlobeFeature[] | null>(null);
   const [s, setS] = useState(DEFAULTS);
   const [theme, setTheme] = useState<Theme>("light");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [annos, setAnnos] = useState<Anno[]>([]);
   const [annoInput, setAnnoInput] = useState("");
-  const [introKey, setIntroKey] = useState(0);
+  const [introKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingViewApplied = useRef(false);
+
+  // Effective panel = base synthetic/live panel + the user's uploaded datasets,
+  // with rename/delete applied. Identity stays stable (no 577-region re-clone)
+  // until the user actually adds or edits something.
+  const panel = useMemo(
+    () => (basePanel && (customDatasets.length || Object.keys(overrides).length)
+      ? augmentPanel(basePanel, customDatasets, overrides)
+      : basePanel),
+    [basePanel, customDatasets, overrides],
+  );
 
   const set = useCallback(<K extends keyof typeof s>(k: K, v: (typeof s)[K]) => setS((p) => ({ ...p, [k]: v })), []);
   const showToast = useCallback((m: string) => {
@@ -102,6 +152,44 @@ export function Atlas() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }, []);
+
+  // ---- dataset management (session-only) ----
+  const renameFactor = useCallback((id: string, name: string) => {
+    setOverrides((o) => ({ ...o, [id]: { ...o[id], name } }));
+  }, []);
+  const deleteFactor = useCallback((id: string) => {
+    setCustomDatasets((d) => d.filter((x) => x.id !== id));
+    setOverrides((o) => ({ ...o, [id]: { ...o[id], deleted: true } }));
+    setS((prev) => {
+      const active = prev.active.filter((x) => x !== id);
+      const scatter = prev.scatter === id ? (basePanel?.factors.find((f) => f.id !== id)?.id ?? prev.scatter) : prev.scatter;
+      return { ...prev, active, scatter };
+    });
+  }, [basePanel]);
+  const ingest = useCallback((text: string, label: string) => {
+    if (!basePanel) return;
+    const res = parseDataset(text, Object.keys(basePanel.regions), basePanel.names, basePanel.years);
+    if ("error" in res) { setDataReport(res.error); showToast(res.error); return; }
+    const palette = ["#a78bfa", "#f472b6", "#22d3ee", "#facc15", "#4ade80", "#fb923c"];
+    setCustomDatasets((d) => [...d, {
+      id: "user_" + Math.random().toString(36).slice(2, 8), name: label, color: palette[d.length % palette.length],
+      source: "user: " + label, units: "z-scored", status: "uploaded", series: res.series,
+    }]);
+    const m = `Added “${label}” — matched ${res.report.matched}/${res.report.total} townships` +
+      `${res.report.unknown ? `, ${res.report.unknown} unmatched` : ""}${res.report.perYear ? "" : " (no year → constant series)"}.`;
+    setDataReport(m); showToast(m);
+  }, [basePanel, showToast]);
+  const onUploadFile = useCallback((file: File) => {
+    file.text().then((t) => ingest(t, file.name.replace(/\.[^.]+$/, "")));
+  }, [ingest]);
+  const onApi = useCallback((url: string, key: string) => {
+    setDataReport("Fetching…");
+    let label = "api"; try { label = new URL(url).hostname; } catch { /* keep default */ }
+    fetch(url, key ? { headers: { Authorization: `Bearer ${key}` } } : undefined)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+      .then((t) => ingest(t, label))
+      .catch((e) => { const m = `API fetch failed: ${e.message}`; setDataReport(m); showToast(m); });
+  }, [ingest, showToast]);
 
   // ---- boot: theme, panel, geojson, shared view ----
   useEffect(() => {
@@ -121,16 +209,16 @@ export function Atlas() {
           if (view) setS((prev) => ({ ...prev, ...view }));
           else applyDefaultsFor(p);
           pendingViewApplied.current = true;
-          setPanel(p);
+          setBasePanel(p);
         });
       } else if ([...q.keys()].length) {
         const obj: Record<string, unknown> = {};
         q.forEach((val, key) => (obj[key] = val));
         setS((prev) => ({ ...prev, ...deserialize(obj) }));
-        setPanel(p);
+        setBasePanel(p);
       } else {
         applyDefaultsFor(p);
-        setPanel(p);
+        setBasePanel(p);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,7 +383,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
     );
   }
 
-  const factorById = (id: string) => panel.factors.find((f) => f.id === id)!;
+  const factorById = (id: string) => panel.factors.find((f) => f.id === id) ?? panel.factors[0];
   const scatterColor = factorById(s.scatter).color;
   const sstat = scatterStats(computed, s.scatter);
   const builtInLag = lagPeak(panel, s.scatter, s.normalize);
@@ -325,9 +413,9 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-bg p-4">
+    <div className="relative flex min-h-screen w-full flex-col bg-bg p-6">
       {/* first screen — header + map (everything below scrolls into view) */}
-      <div className="flex h-[calc(100vh-2rem)] flex-col">
+      <div className="flex h-[calc(100vh-3rem)] flex-col">
       {/* header */}
       <header className="z-40 flex shrink-0 items-center justify-between gap-6 pb-3">
         <div className="brass-halo rounded-lg bg-surface px-6 py-5">
@@ -423,17 +511,18 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         </ExpandingControl>
 
         <ExpandingControl icon={I.data} label="Data provenance" side="right" className="pointer-events-auto">
-          <div className="flex flex-col gap-1.5">
-            {panel.factors.map((f) => {
-              const p = panel.provenance[f.id];
-              return (
-                <div key={f.id} className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5 text-[11.5px] last:border-0">
-                  <span><span className="block text-text">{f.name}</span><span className="block text-text-muted">{p.source}</span></span>
-                  <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[9px] text-accent">{p.status}</span>
-                </div>
-              );
-            })}
-          </div>
+          <DataPanel
+            factors={panel.factors.map((f) => ({
+              id: f.id, name: f.name,
+              source: panel.provenance[f.id]?.source ?? "—",
+              status: panel.provenance[f.id]?.status ?? "—",
+            }))}
+            onRename={renameFactor}
+            onDelete={deleteFactor}
+            onUpload={onUploadFile}
+            onApi={onApi}
+            report={dataReport}
+          />
         </ExpandingControl>
 
         <ExpandingControl icon={I.download} label="Export" side="right" className="pointer-events-auto">
@@ -443,11 +532,6 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             <button onClick={exportMethods} className="ring-brass rounded-md bg-surface-alt px-4 py-3 text-left text-[13px] text-text hover-gradient">Methods note (TXT)</button>
           </div>
         </ExpandingControl>
-
-        <button onClick={() => setIntroKey((k) => k + 1)} aria-label="Replay intro"
-          className="ring-brass shadow-brass pointer-events-auto grid h-12 w-12 place-items-center rounded-full bg-surface/90 text-text-muted backdrop-blur-md transition-colors hover:text-primary">
-          {I.replay}
-        </button>
       </div>
 
         {/* legend / dominant-factor key — bottom-right of the map */}
@@ -524,10 +608,10 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       </main>
       </div>{/* end first screen (header + map) */}
 
-      {/* BELOW THE MAP — analysis summary + scatter & fit, not on the canvas */}
-      <section className="grid grid-cols-1 items-start gap-7 py-8 lg:grid-cols-[minmax(360px,560px)_minmax(0,1fr)]">
-          {/* ANALYSIS SUMMARY — height hugs its text */}
-          <TiltCard intensity={3} className="w-full p-7" contentClassName="flex flex-col">
+      {/* BELOW THE MAP — summary + scatter sit directly on the background (no cards) */}
+      <section className="grid grid-cols-1 items-start gap-6 px-3 pb-10 pt-14 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)]">
+          {/* ANALYSIS SUMMARY — no card, just text on the background */}
+          <div className="relative flex w-full flex-col">
           <button
             onClick={copySummary}
             aria-label="Copy summary"
@@ -561,10 +645,10 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
           <p className="mt-5 text-[12px] italic text-text-muted">
             Ecological (township-level) associations — they do not establish causation or individual risk. Synthetic data; do not cite.
           </p>
-        </TiltCard>
+        </div>
 
-          {/* SCATTER & FIT — plain card (no tilt) so zoom/pan stay accurate */}
-          <div className="brass-halo ml-auto flex h-[452px] w-full max-w-[800px] flex-col rounded-lg bg-surface p-5">
+          {/* SCATTER & FIT — no card; chart sits on the background */}
+          <div className="flex h-[452px] w-full flex-col">
             <div className="mb-3 flex items-center justify-between gap-4">
               <h4 className="text-semibold text-text">Scatter &amp; fit</h4>
               {/* open-on-hover factor menu */}
