@@ -69,6 +69,7 @@ const BaseLayer = memo(function BaseLayer({
           // base stays visible + interactive; the glowing overlay (scaled in
           // place, pointer-events:none) sits on top and never steals the hover
           onMouseEnter={() => onHover(sh.id)}
+          onMouseLeave={() => onHover(null)}
           onClick={() => onSelect?.(sh.id)}
         />
       ))}
