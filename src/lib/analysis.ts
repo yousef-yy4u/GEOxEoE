@@ -125,15 +125,15 @@ export function incColor(v: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-/** Single-hue low→high saturation ramp (pale → vivid teal) for a normalized
- *  t in [0,1]. Used with a percentile stretch so the choropleth shows real
- *  contrast within one hue family instead of a rainbow. */
-const HEAT_HUE = 172;
+/** Smooth low→high ramp across a single green→blue hue family for a
+ *  normalized t in [0,1]. Used with a percentile stretch so the choropleth
+ *  shows real contrast without a rainbow (it never reaches warm hues). */
 export function heatColor(t: number): string {
   t = Math.max(0, Math.min(1, t));
-  const sat = 12 + t * 72; // 12% → 84% saturation
-  const light = 80 - t * 46; // 80% → 34% lightness
-  return `hsl(${HEAT_HUE}, ${sat.toFixed(1)}%, ${light.toFixed(1)}%)`;
+  const hue = 150 + t * 64; // 150° green → 214° blue
+  const sat = 58 + t * 14; // 58% → 72% saturation
+  const light = 56 - t * 12; // 56% → 44% lightness
+  return `hsl(${hue.toFixed(1)}, ${sat.toFixed(1)}%, ${light.toFixed(1)}%)`;
 }
 
 /** CSS gradient string matching `heatColor`, for legends/swatches. */

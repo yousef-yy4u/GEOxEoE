@@ -462,7 +462,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
           <div className="flex flex-wrap gap-2">
             {(["composite", "dominant", "incidence"] as const).map((m) => (
               <Chip key={m} on={s.mode === m} onClick={() => set("mode", m)}>
-                {m === "composite" ? "Composite" : m === "dominant" ? "Dominant factor" : "Raw incidence"}
+                {m === "composite" ? "Composite" : m === "dominant" ? "Dominant factor" : "Incidence rate"}
               </Chip>
             ))}
           </div>
