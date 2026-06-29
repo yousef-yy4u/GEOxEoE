@@ -17,6 +17,7 @@ export interface Settings {
   sev: number;
   sex: string;
   mode: "composite" | "dominant" | "incidence";
+  heat: HeatPalette;
 }
 
 export interface Computed {
@@ -125,21 +126,34 @@ export function incColor(v: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-/** Smooth low→high ramp across a single green→blue hue family for a
- *  normalized t in [0,1]. Used with a percentile stretch so the choropleth
- *  shows real contrast without a rainbow (it never reaches warm hues). */
-export function heatColor(t: number): string {
+/** Selectable base hue families for the choropleth saturation ramp. Each ramp
+ *  sweeps `hue → hue+64` (one color family, never a rainbow); only the starting
+ *  hue changes per palette. `label` is shown in the Display-mode picker. */
+export const HEAT_PALETTES = {
+  jade: { label: "Jade", hue: 150 }, // green → blue (default)
+  ember: { label: "Ember", hue: 18 }, // red → amber
+  iris: { label: "Iris", hue: 256 }, // violet → magenta
+  ocean: { label: "Ocean", hue: 190 }, // cyan → indigo
+} as const;
+export type HeatPalette = keyof typeof HEAT_PALETTES;
+
+/** Smooth low→high ramp across a single hue family for a normalized t in [0,1].
+ *  Used with a percentile stretch so the choropleth shows real contrast without
+ *  a rainbow. The base hue is chosen by `palette`; sat/light ramps are shared. */
+export function heatColor(t: number, palette: HeatPalette = "jade"): string {
   t = Math.max(0, Math.min(1, t));
-  const hue = 150 + t * 64; // 150° green → 214° blue
+  const hue = HEAT_PALETTES[palette].hue + t * 64; // 64° sweep within the family
   const sat = 58 + t * 14; // 58% → 72% saturation
   const light = 56 - t * 12; // 56% → 44% lightness
   return `hsl(${hue.toFixed(1)}, ${sat.toFixed(1)}%, ${light.toFixed(1)}%)`;
 }
 
 /** CSS gradient string matching `heatColor`, for legends/swatches. */
-export const heatGradient = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1]
-  .map((t) => heatColor(t))
-  .join(", ")})`;
+export function heatGradient(palette: HeatPalette = "jade"): string {
+  return `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1]
+    .map((t) => heatColor(t, palette))
+    .join(", ")})`;
+}
 
 /** Robust [lo,hi] percentile range for stretching colors across the data. */
 export function percentileRange(vals: number[], lo = 5, hi = 95): [number, number] {

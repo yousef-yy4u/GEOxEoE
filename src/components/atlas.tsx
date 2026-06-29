@@ -8,7 +8,7 @@ import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
 import { DataPanel } from "./data-panel";
 import {
   recompute, compositeFor, dominantFor, incidenceFor, heatColor, heatGradient, percentileRange,
-  type Settings,
+  HEAT_PALETTES, type HeatPalette, type Settings,
 } from "@/lib/analysis";
 import { parseDataset } from "@/lib/ingest";
 import type { Panel } from "@/lib/synthetic";
@@ -53,7 +53,7 @@ type Theme = "light" | "dark";
 
 const DEFAULTS: Settings & { scatter: string } = {
   active: [], yearStart: 2008, yearEnd: 2024, lag: 0, normalize: false, controlFor: "",
-  age: 50, sev: 1, sex: "all", mode: "composite", scatter: "pm25",
+  age: 50, sev: 1, sex: "all", mode: "composite", heat: "jade", scatter: "pm25",
 };
 
 function fmtP(p: number | null | undefined) {
@@ -247,7 +247,7 @@ export function Atlas() {
         return panel.factors.find((f) => f.id === fid)?.color ?? "#888";
       }
       const v = s.mode === "incidence" ? incidenceFor(computed, id) : compositeFor(computed, s, id);
-      return heatColor((v - range[0]) / (range[1] - range[0]));
+      return heatColor((v - range[0]) / (range[1] - range[0]), s.heat);
     },
     [computed, panel, s, range],
   );
@@ -466,6 +466,27 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
               </Chip>
             ))}
           </div>
+          {s.mode !== "dominant" && (
+            <div className="mt-4">
+              <label className="block font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">Gradient colour</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(HEAT_PALETTES) as HeatPalette[]).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => set("heat", p)}
+                    title={HEAT_PALETTES[p].label}
+                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                      s.heat === p ? "border-primary/40 text-text" : "border-border text-text-muted hover:text-text"
+                    }`}
+                  >
+                    <span className="h-2.5 w-8 rounded-full" style={{ background: heatGradient(p) }} />
+                    {HEAT_PALETTES[p].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </ExpandingControl>
 
         <ExpandingControl icon={I.clock} label="Time window & lag" badge={`${s.yearStart}–${s.yearEnd}`} side="right" className="pointer-events-auto">
@@ -540,7 +561,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             ) : (
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[9px] text-text-muted">low</span>
-                <div className="h-2.5 w-40 rounded-full" style={{ background: heatGradient }} />
+                <div className="h-2.5 w-40 rounded-full" style={{ background: heatGradient(s.heat) }} />
                 <span className="font-mono text-[9px] text-text-muted">high</span>
               </div>
             )}
@@ -699,7 +720,7 @@ function serialize(s: typeof DEFAULTS): Record<string, string> {
   return {
     f: s.active.join(","), ys: `${s.yearStart}`, ye: `${s.yearEnd}`, lag: `${s.lag}`,
     norm: s.normalize ? "1" : "0", ctrl: s.controlFor, age: `${s.age}`, sev: `${s.sev}`,
-    sex: s.sex, mode: s.mode, sc: s.scatter,
+    sex: s.sex, mode: s.mode, heat: s.heat, sc: s.scatter,
   };
 }
 function deserialize(o: Record<string, unknown>): Partial<typeof DEFAULTS> {
@@ -714,6 +735,7 @@ function deserialize(o: Record<string, unknown>): Partial<typeof DEFAULTS> {
   if (o.sev != null) out.sev = +(o.sev as string);
   if (o.sex != null) out.sex = String(o.sex);
   if (o.mode != null) out.mode = String(o.mode) as Settings["mode"];
+  if (o.heat != null && String(o.heat) in HEAT_PALETTES) out.heat = String(o.heat) as HeatPalette;
   if (o.sc != null) out.scatter = String(o.sc);
   return out;
 }
