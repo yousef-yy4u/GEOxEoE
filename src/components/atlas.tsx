@@ -6,6 +6,7 @@ import type { GlobeFeature } from "./globe-atlas";
 import { ExpandingControl } from "./expanding-control";
 import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
 import { DataPanel } from "./data-panel";
+import { CompareMode } from "./compare-mode";
 import {
   recompute, compositeFor, dominantFor, incidenceFor, heatColor, heatGradient, percentileRange,
   HEAT_PALETTES, type HeatPalette, type Settings,
@@ -116,6 +117,7 @@ const I = {
   moon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
   share: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></svg>,
   copy: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>,
+  compare: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="7" height="16" rx="1.5" /><rect x="14" y="4" width="7" height="16" rx="1.5" /><path d="M7 9h-.01M7 12h-.01M17 9h-.01M17 12h-.01" /></svg>,
 };
 
 interface Anno { id: number; region: string; body: string; author: string | null; created: string }
@@ -129,6 +131,9 @@ export function Atlas() {
   const [s, setS] = useState(DEFAULTS);
   const [theme, setTheme] = useState<Theme>("light");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState<"off" | "select" | "dashboard">("off");
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareHover, setCompareHover] = useState<string | null>(null);
   const [annos, setAnnos] = useState<Anno[]>([]);
   const [annoInput, setAnnoInput] = useState("");
   const [introKey] = useState(0);
@@ -152,6 +157,36 @@ export function Atlas() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }, []);
+
+  // ---- compare mode (ephemeral; not serialized to the URL) ----
+  const enterCompare = useCallback(() => {
+    setSelectedId(null);
+    setCompareIds([]);
+    setCompareHover(null);
+    setCompareMode("select");
+  }, []);
+  const exitCompare = useCallback(() => {
+    setCompareMode("off");
+    setCompareIds([]);
+    setCompareHover(null);
+  }, []);
+  const proceedCompare = useCallback(() => {
+    setCompareIds((ids) => {
+      if (ids.length >= 2) setCompareMode("dashboard");
+      return ids;
+    });
+  }, []);
+  const toggleCompareId = useCallback((id: string) => {
+    setCompareIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }, []);
+  const handleMapSelect = useCallback(
+    (id: string) => {
+      if (compareMode === "select") toggleCompareId(id);
+      else if (compareMode === "off") setSelectedId(id);
+      // dashboard phase: map clicks are ignored
+    },
+    [compareMode, toggleCompareId],
+  );
 
   // ---- dataset management (session-only) ----
   const renameFactor = useCallback((id: string, name: string) => {
@@ -408,7 +443,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       {/* first screen — header + map (everything below scrolls into view) */}
       <div className="flex h-[calc(100vh-3rem)] flex-col">
       {/* header */}
-      <header className="z-40 flex shrink-0 items-center justify-between gap-6 pb-3">
+      <header className={`z-40 flex shrink-0 items-center justify-between gap-6 pb-3 transition-opacity duration-300 ${compareMode !== "off" ? "pointer-events-none opacity-0 [&_*]:pointer-events-none" : ""}`}>
         <div className="brass-halo rounded-lg bg-surface px-6 py-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-text-muted">Ontario · synthetic prototype</p>
           <h1 className="title-3 mt-1 text-text">GEO x EoE</h1>
@@ -426,12 +461,23 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       {/* full-bleed map stage; everything else floats over it */}
       <main className="relative min-h-0 flex-1">
         {/* MAP — fills the stage; rounded + clipped so the page padding frames it */}
-        <div className="absolute inset-0 overflow-hidden rounded-2xl">
-          <OntarioMap features={features} colorFor={colorFor} labelHtmlFor={labelFor} selectedId={selectedId} theme={theme} onSelect={setSelectedId} introKey={introKey} />
+        <div className={`absolute inset-0 overflow-hidden rounded-2xl transition-transform duration-500 ease-out ${compareMode === "dashboard" ? "-translate-x-[22%]" : ""}`}>
+          <OntarioMap
+            features={features}
+            colorFor={colorFor}
+            labelHtmlFor={labelFor}
+            selectedId={selectedId}
+            theme={theme}
+            onSelect={handleMapSelect}
+            introKey={introKey}
+            dim={compareMode !== "off"}
+            highlightIds={compareIds}
+            spotlightId={compareHover}
+          />
         </div>
 
         {/* control rail — vertical, left edge (pointer-events let map gaps stay live) */}
-        <div className="pointer-events-none absolute left-4 top-16 z-30 flex flex-col gap-3">
+        <div className={`pointer-events-none absolute left-4 top-16 z-30 flex flex-col gap-3 transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
         <ExpandingControl icon={I.layers} label="Environmental factors" badge={`${s.active.length} active`} side="right" className="pointer-events-auto">
           <div className="flex flex-col gap-2">
             {panel.factors.map((f) => {
@@ -543,10 +589,21 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             <button onClick={exportMethods} className="ring-brass rounded-md bg-surface-alt px-4 py-3 text-left text-[13px] text-text hover-gradient">Methods note (TXT)</button>
           </div>
         </ExpandingControl>
+
+        {/* Compare regions — enters compare mode (this whole rail then fades away) */}
+        <button
+          type="button"
+          onClick={enterCompare}
+          aria-label="Compare regions"
+          title="Compare regions"
+          className="ring-brass pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full bg-surface/90 text-text-muted shadow-brass backdrop-blur-md transition-all hover:text-primary"
+        >
+          {I.compare}
+        </button>
       </div>
 
         {/* legend / dominant-factor key — bottom-right of the map */}
-        <div className="pointer-events-none absolute bottom-4 right-4 z-20">
+        <div className={`pointer-events-none absolute bottom-4 right-4 z-20 transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
           <div className="brass-halo pointer-events-auto flex items-center gap-3 rounded-lg bg-surface/80 px-4 py-2.5 backdrop-blur-md">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
               {s.mode === "incidence" ? "Incidence /100k" : s.mode === "dominant" ? "Dominant factor" : "Composite (ρ-weighted)"}
@@ -569,7 +626,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         </div>
 
         {/* KEY STATS — no card; blended into the map, semi-transparent */}
-        <div className="pointer-events-none absolute right-5 top-5 z-30 w-[300px]">
+        <div className={`pointer-events-none absolute right-5 top-5 z-30 w-[300px] transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
           <div className="pointer-events-auto flex max-h-[calc(100vh-150px)] flex-col overflow-auto rounded-xl bg-bg/20 px-4 py-3 backdrop-blur-[2px] [text-shadow:0_1px_4px_hsl(var(--bg)/0.85)]">
           {selectedId ? (
             <>
@@ -615,6 +672,21 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
           )}
           </div>
         </div>
+
+        {/* compare mode overlay — a sibling of the map container (not a child), so the
+            map's overflow-hidden can't clip the sliding comparison dashboard */}
+        <CompareMode
+          mode={compareMode}
+          panel={panel}
+          computed={computed}
+          s={s}
+          ids={compareIds}
+          colorFor={colorFor}
+          onExit={exitCompare}
+          onProceed={proceedCompare}
+          onRemove={toggleCompareId}
+          onHoverBox={setCompareHover}
+        />
 
       </main>
       </div>{/* end first screen (header + map) */}

@@ -183,6 +183,17 @@
       drop-shadow(0 6px 10px rgb(127 105 174 / .60))
       drop-shadow(0 14px 24px rgb(171 201 233 / .50));
   }
+  /* Compare mode: a selected region painted in full colour over the dimmed base.
+     Fades in when picked; .is-muted fades it back out when another region is the
+     spotlight (dashboard box hover). */
+  .compare-overlay {
+    pointer-events: none;
+    animation: compare-fade-in .28s ease both;
+    transition: opacity .3s ease;
+  }
+  .compare-overlay.is-muted { opacity: 0; }
+  /* Selection-list row leaving the list (× pressed) before it unmounts. */
+  .compare-row-out { animation: compare-row-out .22s ease forwards; }
 
   /* Typography helpers */
   .title-1 { @apply font-sans font-bold tracking-tight text-5xl; }
@@ -197,4 +208,22 @@
 @keyframes twp-pop {
   from { transform: translateY(0) scale(1); }
   to   { transform: translateY(-8%) scale(1.07); }
+}
+@keyframes compare-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes compare-row-out {
+  to { opacity: 0; transform: translateX(14px); }
+}
+
+/* Respect users who ask for less motion: collapse every animation/transition
+   (incl. the inline filter/transform transitions used by compare mode). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
