@@ -125,24 +125,21 @@ export function incColor(v: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-/** Vivid low→high heat ramp (lapis → cyan → jade → amber → coral) for a
- *  normalized t in [0,1]. Used with a percentile stretch so the choropleth
- *  shows real contrast instead of clustering in one hue. */
+/** Single-hue low→high saturation ramp (pale → vivid teal) for a normalized
+ *  t in [0,1]. Used with a percentile stretch so the choropleth shows real
+ *  contrast within one hue family instead of a rainbow. */
+const HEAT_HUE = 172;
 export function heatColor(t: number): string {
   t = Math.max(0, Math.min(1, t));
-  const stops: [number, [number, number, number]][] = [
-    [0, [45, 115, 180]], [0.25, [58, 166, 201]], [0.5, [22, 171, 152]],
-    [0.72, [223, 159, 69]], [1, [197, 86, 86]],
-  ];
-  for (let i = 0; i < stops.length - 1; i++) {
-    const [a, ca] = stops[i], [b, cb] = stops[i + 1];
-    if (t <= b) {
-      const k = (t - a) / (b - a);
-      return `rgb(${ca.map((v, j) => Math.round(v + (cb[j] - v) * k)).join(",")})`;
-    }
-  }
-  return "rgb(197,86,86)";
+  const sat = 12 + t * 72; // 12% → 84% saturation
+  const light = 80 - t * 46; // 80% → 34% lightness
+  return `hsl(${HEAT_HUE}, ${sat.toFixed(1)}%, ${light.toFixed(1)}%)`;
 }
+
+/** CSS gradient string matching `heatColor`, for legends/swatches. */
+export const heatGradient = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1]
+  .map((t) => heatColor(t))
+  .join(", ")})`;
 
 /** Robust [lo,hi] percentile range for stretching colors across the data. */
 export function percentileRange(vals: number[], lo = 5, hi = 95): [number, number] {

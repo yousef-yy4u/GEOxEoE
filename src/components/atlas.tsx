@@ -7,7 +7,7 @@ import { ExpandingControl } from "./expanding-control";
 import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
 import { DataPanel } from "./data-panel";
 import {
-  recompute, compositeFor, dominantFor, incidenceFor, heatColor, percentileRange,
+  recompute, compositeFor, dominantFor, incidenceFor, heatColor, heatGradient, percentileRange,
   type Settings,
 } from "@/lib/analysis";
 import { parseDataset } from "@/lib/ingest";
@@ -540,7 +540,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             ) : (
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[9px] text-text-muted">low</span>
-                <div className="h-2.5 w-40 rounded-full" style={{ background: "linear-gradient(90deg,rgb(45,115,180),rgb(58,166,201),rgb(22,171,152),rgb(223,159,69),rgb(197,86,86))" }} />
+                <div className="h-2.5 w-40 rounded-full" style={{ background: heatGradient }} />
                 <span className="font-mono text-[9px] text-text-muted">high</span>
               </div>
             )}
