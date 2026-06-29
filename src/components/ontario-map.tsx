@@ -33,6 +33,12 @@ interface Props {
   theme: "light" | "dark";
   onSelect?: (id: string) => void;
   introKey?: number;
+  /** Compare mode: darken the whole base map so only `highlightIds` stand out. */
+  dim?: boolean;
+  /** Regions kept in full colour (drawn as overlays on top of the dimmed base). */
+  highlightIds?: string[];
+  /** When set, every highlighted region except this one fades back toward dark. */
+  spotlightId?: string | null;
 }
 
 interface Shape {
@@ -85,6 +91,9 @@ export function OntarioMap({
   theme,
   onSelect,
   introKey = 0,
+  dim = false,
+  highlightIds,
+  spotlightId = null,
 }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
@@ -267,15 +276,38 @@ export function OntarioMap({
         className="h-full w-full animate-fade-up"
         style={{ overflow: "visible" }}
       >
-        <BaseLayer shapes={shapes} colorMap={colorMap} stroke={stroke} onHover={onHover} onSelect={handleSelect} />
-        {/* float overlay — lifted, glowing copies on top */}
-        {selected && (
+        {/* base map — darkened as a group in compare mode so the highlight overlays
+            below (siblings, drawn after) stay at full brightness */}
+        <g style={{ filter: dim ? "brightness(0.4) saturate(0.55)" : "none", transition: "filter .35s ease" }}>
+          <BaseLayer shapes={shapes} colorMap={colorMap} stroke={stroke} onHover={onHover} onSelect={handleSelect} />
+        </g>
+        {/* float overlay — lifted, glowing copies on top (the accent "selected" glow is
+            suppressed while comparing so it doesn't compete with the compare highlights) */}
+        {!dim && selected && (
           <path d={selected.d} className="twp-selected" fill={colorMap[selected.id]}
             stroke="hsl(var(--accent))" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
         )}
         {hovered && (
           <path d={hovered.d} className="twp-float" fill={colorMap[hovered.id]}
             stroke="#fff" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        )}
+        {/* compare highlights — full-colour copies of the selected regions on top of the
+            dimmed base. They fade in on selection and fade out when a dashboard box is
+            spotlighted. pointer-events:none lets a click fall through to the base path
+            underneath, so re-clicking a lit region de-selects it. */}
+        {dim && highlightIds?.map((id) =>
+          shapeById[id] ? (
+            <path
+              key={id}
+              d={shapeById[id].d}
+              className={`compare-overlay${spotlightId && spotlightId !== id ? " is-muted" : ""}`}
+              fill={colorMap[id]}
+              stroke="hsl(var(--accent))"
+              strokeWidth={0.8}
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+            />
+          ) : null,
         )}
       </svg>
 
