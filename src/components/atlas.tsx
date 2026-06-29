@@ -7,7 +7,7 @@ import { ExpandingControl } from "./expanding-control";
 import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
 import { DataPanel } from "./data-panel";
 import {
-  recompute, compositeFor, dominantFor, incidenceFor, heatColor, percentileRange, sigStars,
+  recompute, compositeFor, dominantFor, incidenceFor, heatColor, percentileRange,
   type Settings,
 } from "@/lib/analysis";
 import { parseDataset } from "@/lib/ingest";
@@ -262,7 +262,7 @@ export function Atlas() {
         .map((fid) => {
           const f = panel.factors.find((x) => x.id === fid)!;
           const c = computed.corr[fid];
-          return `<div style="display:flex;justify-content:space-between;gap:14px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${f.color};margin-right:6px"></span>${f.name}</span><b>ρ ${c?.r == null ? "—" : c.r.toFixed(2)} ${sigStars(c?.p)}</b></div>`;
+          return `<div style="display:flex;justify-content:space-between;gap:14px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${f.color};margin-right:6px"></span>${f.name}</span><b>ρ ${c?.r == null ? "—" : c.r.toFixed(2)}</b> <span style="color:hsl(var(--text-muted))">p ${fmtP(c?.p)}</span></div>`;
         })
         .join("");
       return `<div style="font-family:var(--font-figtree),sans-serif;background:hsl(var(--surface));color:hsl(var(--text));border:1px solid hsl(var(--border));border-radius:12px;padding:12px 14px;min-width:220px;box-shadow:0 12px 30px -12px rgba(0,0,0,.35)">
@@ -446,7 +446,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] text-text">{f.name}</span>
                     <span className="block font-mono text-[11px] text-text-muted">
-                      {c?.r == null ? f.hint : `ρ ${c.r.toFixed(2)} ${sigStars(c.p)}${c.partial ? " · partial" : ""}`}
+                      {c?.r == null ? f.hint : `ρ ${c.r.toFixed(2)} · p ${fmtP(c.p)}${c.partial ? " · partial" : ""}`}
                     </span>
                   </span>
                   <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${on ? "bg-primary" : "bg-surface-alt"}`}>
@@ -661,7 +661,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
               <Scatter computed={computed} factorId={s.scatter} color={scatterColor} selectedId={selectedId} themeKey={theme} />
             </div>
             <div className="mt-3 flex justify-between font-mono text-[11px] text-text-muted">
-              <span>r={sstat.r == null ? "—" : sstat.r.toFixed(2)} · R²={sstat.r2.toFixed(2)} · {sstat.stars}</span>
+              <span>r={sstat.r == null ? "—" : sstat.r.toFixed(2)} · R²={sstat.r2.toFixed(2)} · p={fmtP(sstat.p)}</span>
               <span>n={sstat.n} · scroll · drag · dbl-click ⟲</span>
             </div>
           </div>

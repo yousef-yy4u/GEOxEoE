@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ols, pearson } from "@/lib/stats";
-import { sigStars, type Computed } from "@/lib/analysis";
+import { type Computed } from "@/lib/analysis";
 import type { Panel } from "@/lib/synthetic";
 
 interface ScatterView { scale: number; tx: number; ty: number }
@@ -139,7 +139,7 @@ export function scatterStats(computed: Computed, factorId: string) {
   const ys = ids.map((id) => computed.perRegion[id].incidence);
   const p = pearson(xs, ys);
   const fit = ols(xs, ys);
-  return { r: p.r, p: p.p, r2: fit.r2, stars: sigStars(p.p), n: ids.length };
+  return { r: p.r, p: p.p, r2: fit.r2, n: ids.length };
 }
 
 /* Pooled state-year lag profile (n≈14k) — recovers the built-in lag. POINT

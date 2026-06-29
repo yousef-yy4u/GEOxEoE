@@ -151,11 +151,3 @@ export function percentileRange(vals: number[], lo = 5, hi = 95): [number, numbe
   const a = at(lo), b = at(hi);
   return a === b ? [a - 1e-6, b + 1e-6] : [a, b];
 }
-
-export function sigStars(p: number | null | undefined): string {
-  if (p == null) return "";
-  if (p < 0.001) return "***";
-  if (p < 0.01) return "**";
-  if (p < 0.05) return "*";
-  return "n.s.";
-}
