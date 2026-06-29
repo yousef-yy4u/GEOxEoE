@@ -300,7 +300,9 @@ export function OntarioMap({
             <path
               key={id}
               d={shapeById[id].d}
-              className={`compare-overlay${spotlightId && spotlightId !== id ? " is-muted" : ""}`}
+              // hide the in-place overlay for the region being hovered so the
+              // popped-out `.twp-float` copy is the only image (no ghost behind it)
+              className={`compare-overlay${(spotlightId && spotlightId !== id) || id === hoveredId ? " is-muted" : ""}`}
               fill={colorMap[id]}
               stroke="hsl(var(--accent))"
               strokeWidth={0.8}

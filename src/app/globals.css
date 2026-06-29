@@ -188,7 +188,11 @@
      spotlight (dashboard box hover). */
   .compare-overlay {
     pointer-events: none;
-    animation: compare-fade-in .28s ease both;
+    /* `backwards` (not `both`): apply the from-state before the fade-in starts to
+       avoid a mount flash, but release opacity control once it ends so `.is-muted`
+       and the transition below can fade a region back out on spotlight. A filling
+       animation would otherwise override `.is-muted { opacity: 0 }` in the cascade. */
+    animation: compare-fade-in .28s ease backwards;
     transition: opacity .3s ease;
   }
   .compare-overlay.is-muted { opacity: 0; }
