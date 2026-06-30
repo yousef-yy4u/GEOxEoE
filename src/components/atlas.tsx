@@ -586,18 +586,22 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
             <button onClick={exportMethods} className="ring-brass rounded-md bg-surface-alt px-4 py-3 text-left text-[13px] text-text hover-gradient">Methods note (TXT)</button>
           </div>
         </ExpandingControl>
-
-        {/* Compare regions — enters compare mode (this whole rail then fades away) */}
-        <button
-          type="button"
-          onClick={enterCompare}
-          aria-label="Compare regions"
-          title="Compare regions"
-          className="ring-brass pointer-events-auto grid h-12 w-12 shrink-0 place-items-center rounded-full bg-surface/90 text-text-muted shadow-brass backdrop-blur-md transition-all hover:text-primary"
-        >
-          {I.compare}
-        </button>
       </div>
+
+        {/* Compare regions — larger pill between the stats card and the legend (right
+            edge); enters compare mode, after which everything here fades away */}
+        <div className={`pointer-events-none absolute bottom-20 right-4 z-30 transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
+          <button
+            type="button"
+            onClick={enterCompare}
+            aria-label="Compare regions"
+            title="Compare regions"
+            className="ring-brass pointer-events-auto flex items-center gap-2 rounded-full bg-surface/90 px-6 py-3 text-sm font-semibold text-text-muted shadow-brass backdrop-blur-md transition-all hover:text-primary"
+          >
+            {I.compare}
+            Compare
+          </button>
+        </div>
 
         {/* legend / dominant-factor key — bottom-right of the map */}
         <div className={`pointer-events-none absolute bottom-4 right-4 z-20 transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
