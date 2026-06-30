@@ -127,6 +127,72 @@ export function ols(x: number[], y: number[]): Ols {
   return { slope, intercept, r2: r * r };
 }
 
+export interface MultiReg {
+  coef: number[];   // one coefficient per predictor column (standardized betas if inputs z-scored)
+  intercept: number;
+  r2: number;
+  n: number;
+  k: number;        // number of predictors
+}
+
+/** Invert a square matrix via Gauss-Jordan elimination with partial pivoting.
+ *  Returns null if the matrix is singular. Sized for tiny systems (k+1 ≤ ~10). */
+function invert(m: number[][]): number[][] | null {
+  const n = m.length;
+  const a = m.map((row, i) => [...row, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(a[r][col]) > Math.abs(a[piv][col])) piv = r;
+    if (Math.abs(a[piv][col]) < 1e-12) return null;
+    [a[col], a[piv]] = [a[piv], a[col]];
+    const d = a[col][col];
+    for (let j = 0; j < 2 * n; j++) a[col][j] /= d;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = a[r][col];
+      for (let j = 0; j < 2 * n; j++) a[r][j] -= f * a[col][j];
+    }
+  }
+  return a.map((row) => row.slice(n));
+}
+
+/** Ordinary-least-squares multiple regression of y on the columns of X via the
+ *  normal equations β = (XᵀX)⁻¹ Xᵀy. `X` is row-major: X[i] is the predictor row
+ *  for observation i. With z-scored inputs the intercept ≈ 0 and coef are
+ *  standardized betas; for k = 1 this reduces to simple regression (β = Pearson r). */
+export function multipleRegression(X: number[][], y: number[]): MultiReg {
+  const n = X.length;
+  const k = n ? X[0].length : 0;
+  if (n === 0 || k === 0 || n !== y.length) return { coef: Array(k).fill(0), intercept: 0, r2: 0, n, k };
+  // Design matrix with leading intercept column of 1s → p = k + 1 columns.
+  const p = k + 1;
+  const D = X.map((row) => [1, ...row]);
+  // XᵀX (p×p) and Xᵀy (p).
+  const XtX = Array.from({ length: p }, () => Array(p).fill(0));
+  const Xty = Array(p).fill(0);
+  for (let i = 0; i < n; i++) {
+    for (let a = 0; a < p; a++) {
+      Xty[a] += D[i][a] * y[i];
+      for (let b = 0; b < p; b++) XtX[a][b] += D[i][a] * D[i][b];
+    }
+  }
+  const inv = invert(XtX);
+  if (!inv) return { coef: Array(k).fill(0), intercept: 0, r2: 0, n, k };
+  const beta = Array(p).fill(0);
+  for (let a = 0; a < p; a++) for (let b = 0; b < p; b++) beta[a] += inv[a][b] * Xty[b];
+  // R² from residual vs total sum of squares.
+  const my = mean(y);
+  let ssRes = 0, ssTot = 0;
+  for (let i = 0; i < n; i++) {
+    let yhat = 0;
+    for (let a = 0; a < p; a++) yhat += beta[a] * D[i][a];
+    ssRes += (y[i] - yhat) ** 2;
+    ssTot += (y[i] - my) ** 2;
+  }
+  const r2 = ssTot ? 1 - ssRes / ssTot : 0;
+  return { coef: beta.slice(1), intercept: beta[0], r2, n, k };
+}
+
 /** Partial correlation of x and y controlling for confounder z. */
 export function partial(x: number[], y: number[], z: number[]): Pearson {
   const rxy = pearson(x, y).r ?? 0;

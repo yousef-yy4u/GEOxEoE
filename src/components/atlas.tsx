@@ -8,7 +8,7 @@ import { Scatter, LagProfile, scatterStats, lagPeak } from "./charts";
 import { DataPanel } from "./data-panel";
 import { CompareMode } from "./compare-mode";
 import {
-  recompute, compositeFor, dominantFor, incidenceFor, heatColor, heatGradient, percentileRange,
+  recompute, dominantFor, incidenceFor, heatColor, heatGradient, percentileRange,
   HEAT_PALETTES, type HeatPalette, type Settings,
 } from "@/lib/analysis";
 import { parseDataset } from "@/lib/ingest";
@@ -54,7 +54,7 @@ type Theme = "light" | "dark";
 
 const DEFAULTS: Settings & { scatter: string } = {
   active: [], yearStart: 2008, yearEnd: 2024, lag: 0, normalize: false, controlFor: "",
-  age: 50, sev: 1, sex: "all", mode: "composite", heat: "jade", scatter: "pm25",
+  age: 50, sev: 1, sex: "all", mode: "incidence", heat: "jade", scatter: "pm25",
 };
 
 function fmtP(p: number | null | undefined) {
@@ -264,15 +264,13 @@ export function Atlas() {
   // ---- compute ----
   const computed = useMemo(() => (panel ? recompute(panel, s) : null), [panel, s]);
 
-  // percentile stretch so the choropleth shows real contrast (composite/incidence
-  // values cluster mid-range otherwise → a near-uniform hue)
+  // percentile stretch so the choropleth shows real contrast (incidence values
+  // cluster mid-range otherwise → a near-uniform hue)
   const range = useMemo<[number, number]>(() => {
     if (!computed) return [0, 1];
-    const vals = computed.ids.map((id) =>
-      s.mode === "incidence" ? incidenceFor(computed, id) : compositeFor(computed, s, id),
-    );
+    const vals = computed.ids.map((id) => incidenceFor(computed, id));
     return percentileRange(vals);
-  }, [computed, s]);
+  }, [computed]);
 
   const colorFor = useCallback(
     (id: string) => {
@@ -281,7 +279,7 @@ export function Atlas() {
         const fid = dominantFor(computed, s, id);
         return panel.factors.find((f) => f.id === fid)?.color ?? "#888";
       }
-      const v = s.mode === "incidence" ? incidenceFor(computed, id) : compositeFor(computed, s, id);
+      const v = incidenceFor(computed, id);
       return heatColor((v - range[0]) / (range[1] - range[0]), s.heat);
     },
     [computed, panel, s, range],
@@ -291,7 +289,6 @@ export function Atlas() {
     (id: string) => {
       if (!computed || !panel) return "";
       const name = panel.names[id];
-      const comp = compositeFor(computed, s, id).toFixed(2);
       const inc = incidenceFor(computed, id).toFixed(2);
       const rows = s.active
         .map((fid) => {
@@ -302,8 +299,7 @@ export function Atlas() {
         .join("");
       return `<div style="font-family:var(--font-figtree),sans-serif;background:hsl(var(--surface));color:hsl(var(--text));border:1px solid hsl(var(--border));border-radius:12px;padding:12px 14px;min-width:220px;box-shadow:0 12px 30px -12px rgba(0,0,0,.35)">
         <div style="font-weight:700;margin-bottom:6px">${name}</div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-mono),monospace;font-size:11.5px;color:hsl(var(--text-muted))"><span>Incidence${s.normalize ? " (adj.)" : ""}</span><b style="color:hsl(var(--text))">${inc} /100k</b></div>
-        <div style="display:flex;justify-content:space-between;font-family:var(--font-mono),monospace;font-size:11.5px;color:hsl(var(--text-muted));margin-bottom:6px"><span>Composite</span><b style="color:hsl(var(--text))">${comp}</b></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--font-mono),monospace;font-size:11.5px;color:hsl(var(--text-muted));margin-bottom:6px"><span>Incidence${s.normalize ? " (adj.)" : ""}</span><b style="color:hsl(var(--text))">${inc} /100k</b></div>
         <div style="border-top:1px dashed hsl(var(--border));padding-top:6px;font-family:var(--font-mono),monospace;font-size:11px;color:hsl(var(--text-muted))">${rows || "no factors active"}</div>
       </div>`;
     },
@@ -346,12 +342,12 @@ export function Atlas() {
   }
   function exportCsv() {
     if (!panel || !computed) return;
-    const head = ["region_id", "name", "incidence", "endoscopy_access", ...panel.factors.map((f) => "z_" + f.id), "composite"];
+    const head = ["region_id", "name", "incidence", "endoscopy_access", ...panel.factors.map((f) => "z_" + f.id)];
     const lines = [head.join(",")];
     for (const id of computed.ids) {
       const ps = computed.perRegion[id];
       lines.push([id, `"${panel.names[id].replace(/"/g, "'")}"`, ps.incidence.toFixed(3), panel.regions[id].endoscopy_access,
-        ...panel.factors.map((f) => ps.exposure[f.id].toFixed(3)), compositeFor(computed, s, id).toFixed(3)].join(","));
+        ...panel.factors.map((f) => ps.exposure[f.id].toFixed(3))].join(","));
     }
     download("ontario_eoe_data.csv", "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n")));
     showToast("CSV exported");
@@ -372,6 +368,7 @@ Generated ${new Date().toISOString()}
 Data: ${panel.source} (SYNTHETIC — illustrative only, do not cite)
 Geography: Ontario census subdivisions (2021), n=${computed.ids.length}
 Window: ${s.yearStart}–${s.yearEnd}; exposure lag ${s.lag} yr; incidence ${s.normalize ? "adjusted for diagnostic access" : "unadjusted"}
+Model: ${computed.model.name}${computed.model.type === "none" ? "" : ` (R²=${computed.model.r2.toFixed(3)})`}
 Partial control: ${s.controlFor ? panel.factors.find((f) => f.id === s.controlFor)!.name : "none"}
 Cohort (illustrative): age-weight=${s.age}, severity≥${["any", "mild", "moderate", "severe"][s.sev]}, sex=${s.sex}
 Design: ecological (township-level). In-browser stats validated vs scipy to 1e-6.
@@ -388,8 +385,8 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
   // ---- derived leaderboard ----
   const lead = useMemo(() => {
     if (!computed || !panel) return null;
-    const rows = computed.ids.map((id) => ({ id, rho: compositeFor(computed, s, id), inc: incidenceFor(computed, id) }));
-    rows.sort((a, b) => b.rho - a.rho);
+    const rows = computed.ids.map((id) => ({ id, inc: incidenceFor(computed, id) }));
+    rows.sort((a, b) => b.inc - a.inc);
     const meanInc = rows.reduce((a, r) => a + r.inc, 0) / rows.length;
     let strongest: string | null = null;
     for (const fid of s.active) {
@@ -432,7 +429,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
       `the strongest measured association across Ontario townships is ${driver.f.name.toLowerCase()} ` +
       `(r = ${driver.c.r!.toFixed(2)}${ci}, n = ${driver.c.n} townships, ${sig})${driver.c.partial ? ", a partial correlation" : ""}. ` +
       `Incidence is ${s.normalize ? "adjusted for diagnostic-access" : "unadjusted (diagnostic-access confounding likely)"}; ` +
-      `the composite peaks in ${panel.names[lead.top.id]} and is lowest in ${panel.names[lead.bottom.id]}.` +
+      `incidence peaks in ${panel.names[lead.top.id]} and is lowest in ${panel.names[lead.bottom.id]}.` +
       `${weak.length ? ` No reliable association was detected for ${weak.join(", ")} (p ≥ 0.05) — treat as null results.` : ""}` +
       `\n\nEcological (township-level) associations — they do not establish causation or individual risk. Synthetic data; do not cite.`;
     navigator.clipboard?.writeText(txt).then(() => showToast("Summary copied"), () => showToast("Copy failed"));
@@ -506,9 +503,9 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
 
         <ExpandingControl icon={I.palette} label="Display mode" side="right" className="pointer-events-auto">
           <div className="flex flex-wrap gap-2">
-            {(["composite", "dominant", "incidence"] as const).map((m) => (
+            {(["incidence", "dominant"] as const).map((m) => (
               <Chip key={m} on={s.mode === m} onClick={() => set("mode", m)}>
-                {m === "composite" ? "Composite" : m === "dominant" ? "Dominant factor" : "Incidence rate"}
+                {m === "dominant" ? "Dominant factor" : "Incidence rate"}
               </Chip>
             ))}
           </div>
@@ -606,7 +603,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
         <div className={`pointer-events-none absolute bottom-4 right-4 z-20 transition-opacity duration-300 ${compareMode !== "off" ? "opacity-0 [&_*]:pointer-events-none" : ""}`}>
           <div className="brass-halo pointer-events-auto flex items-center gap-3 rounded-lg bg-surface/80 px-4 py-2.5 backdrop-blur-md">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
-              {s.mode === "incidence" ? "Incidence /100k" : s.mode === "dominant" ? "Dominant factor" : "Composite (ρ-weighted)"}
+              {s.mode === "dominant" ? "Dominant factor" : "Incidence /100k"}
             </span>
             {s.mode === "dominant" ? (
               <div className="flex max-w-[320px] flex-wrap gap-x-3 gap-y-1">
@@ -635,7 +632,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
                 <button onClick={() => setSelectedId(null)} className="font-mono text-[11px] text-text-muted hover:text-text">← overview</button>
               </div>
               <p className="mt-2 font-mono text-[11px] text-text-muted">
-                composite {compositeFor(computed, s, selectedId).toFixed(2)} · incidence {incidenceFor(computed, selectedId).toFixed(1)}/100k
+                incidence {incidenceFor(computed, selectedId).toFixed(1)}/100k
               </p>
               <div className="mt-5 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
                 {annos.length === 0 ? (
@@ -661,10 +658,11 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
               <h4 className="text-semibold text-text">Top townships &amp; key stats</h4>
               <div className="mt-6 grid flex-1 grid-cols-2 content-start gap-x-8 gap-y-6">
                 <Stat k="Top township" v={truncate(panel.names[lead.top.id], 18)} />
-                <Stat k="Composite (max)" v={lead.top.rho.toFixed(2)} />
+                <Stat k="Top incidence" v={lead.top.inc.toFixed(1)} sub="/100k" />
                 <Stat k="Mean incidence" v={`${lead.meanInc.toFixed(1)}`} sub="/100k" />
                 <Stat k="Strongest factor" v={lead.strongest ? `${computed.corr[lead.strongest].r!.toFixed(2)}` : "—"} sub={lead.strongest ? factorById(lead.strongest).name.split(" ")[0] : ""} />
                 <Stat k="Active factors" v={`${s.active.length}`} />
+                <Stat k="Model" v={computed.model.type === "simple" ? "Simple" : computed.model.type === "multiple" ? "Multiple" : "—"} sub={computed.model.type === "none" ? "linear regression" : `linear · R² ${computed.model.r2.toFixed(2)}`} />
                 <Stat k="Townships (n)" v={`${computed.ids.length}`} />
               </div>
               <p className="mt-4 font-mono text-[10.5px] text-text-muted">Click any township on the map to read or add team notes.</p>
@@ -679,7 +677,6 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
           mode={compareMode}
           panel={panel}
           computed={computed}
-          s={s}
           ids={compareIds}
           colorFor={colorFor}
           onExit={exitCompare}
@@ -719,7 +716,7 @@ a known EoE confounder (see access adjustment). Synthetic data.`;
               {driver.c.p != null && driver.c.p < 0.05 ? `p = ${fmtP(driver.c.p)}` : `not significant (p = ${fmtP(driver.c.p)})`})
               {driver.c.partial ? ", a partial correlation" : ""}. Incidence is{" "}
               {s.normalize ? "adjusted for diagnostic-access" : "unadjusted (diagnostic-access confounding likely)"};
-              the composite peaks in <b>{panel.names[lead.top.id]}</b> and is lowest in <b>{panel.names[lead.bottom.id]}</b>.
+              incidence peaks in <b>{panel.names[lead.top.id]}</b> and is lowest in <b>{panel.names[lead.bottom.id]}</b>.
               {weak.length ? <> <span className="italic text-text-muted">No reliable association</span> was detected for {weak.join(", ")} (p ≥ 0.05) — treat as null results.</> : null}
             </p>
           ) : (
@@ -806,7 +803,7 @@ function deserialize(o: Record<string, unknown>): Partial<typeof DEFAULTS> {
   if (o.age != null) out.age = +(o.age as string);
   if (o.sev != null) out.sev = +(o.sev as string);
   if (o.sex != null) out.sex = String(o.sex);
-  if (o.mode != null) out.mode = String(o.mode) as Settings["mode"];
+  if (o.mode === "dominant" || o.mode === "incidence") out.mode = o.mode;
   if (o.heat != null && String(o.heat) in HEAT_PALETTES) out.heat = String(o.heat) as HeatPalette;
   if (o.sc != null) out.scatter = String(o.sc);
   return out;

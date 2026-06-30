@@ -32,7 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${figtree.variable} ${mono.variable}`}
     >
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

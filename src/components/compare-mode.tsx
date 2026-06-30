@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { compositeFor, incidenceFor, type Computed, type Settings } from "@/lib/analysis";
+import { incidenceFor, type Computed } from "@/lib/analysis";
 import type { Panel } from "@/lib/synthetic";
 
 interface Props {
   mode: "off" | "select" | "dashboard";
   panel: Panel;
   computed: Computed;
-  s: Settings;
   ids: string[];
   /** Region's current choropleth colour — used for the dot so cards match the lit map. */
   colorFor: (id: string) => string;
@@ -29,7 +28,7 @@ const CompareGlyph = (
    phases: a township-picking phase (instructions + running list) and the sliding
    "Comparison" dashboard. Every piece is kept mounted and animates via toggled
    classes, so it fades/slides in AND out. */
-export function CompareMode({ mode, panel, computed, s, ids, colorFor, onExit, onProceed, onRemove, onHoverBox }: Props) {
+export function CompareMode({ mode, panel, computed, ids, colorFor, onExit, onProceed, onRemove, onHoverBox }: Props) {
   // Local exit choreography for list rows removed via their × button (so the row
   // plays a quick fade-out before it actually leaves `ids`). Map-click removal is
   // immediate — the row simply unmounts.
@@ -53,7 +52,6 @@ export function CompareMode({ mode, panel, computed, s, ids, colorFor, onExit, o
     const ps = computed.perRegion[id];
     return [
       { label: "Incidence", value: incidenceFor(computed, id).toFixed(1), unit: "/100k" },
-      { label: "Composite", value: compositeFor(computed, s, id).toFixed(2) },
       { label: "Endoscopy access", value: panel.regions[id]?.endoscopy_access.toFixed(2) ?? "—" },
       ...panel.factors.map((f) => ({ label: f.name, value: ps?.exposure[f.id]?.toFixed(2) ?? "—", color: f.color })),
     ];

@@ -1,7 +1,7 @@
 /* Client-side interactive analysis over the panel — recomputed on every
    control change so the globe + cards stay live. Mirrors the validated
    stats; no server round-trip per toggle. */
-import { pearson, partial, type Pearson } from "./stats";
+import { pearson, partial, multipleRegression, type Pearson } from "./stats";
 import type { Panel } from "./synthetic";
 
 export const YEAR0 = 2000;
@@ -16,14 +16,26 @@ export interface Settings {
   age: number;
   sev: number;
   sex: string;
-  mode: "composite" | "dominant" | "incidence";
+  mode: "dominant" | "incidence";
   heat: HeatPalette;
+}
+
+export interface RegModel {
+  type: "none" | "simple" | "multiple";
+  name: string;                              // e.g. "Simple Linear Regression"
+  predictors: string[];                      // active factors (+ confounder covariate if set)
+  coef: Record<string, number>;              // standardized beta per predictor
+  r2: number;
+  n: number;
+  predStd: Record<string, number>;           // per-region predicted (standardized) incidence
+  stdParams: Record<string, { mean: number; std: number }>; // per-predictor z-score params
 }
 
 export interface Computed {
   corr: Record<string, Pearson>;
   perRegion: Record<string, { exposure: Record<string, number>; incidence: number }>;
   ids: string[];
+  model: RegModel;
 }
 
 /** Mean of a per-year series across the window, shifted back by `lag`. */
@@ -67,32 +79,90 @@ export function recompute(panel: Panel, s: Settings): Computed {
       corr[f.id] = pearson(exposureArr[f.id], incArr);
     }
   }
-  return { corr, perRegion, ids };
+
+  const model = fitModel(s, ids, exposureArr, incArr);
+  return { corr, perRegion, ids, model };
 }
 
-/** Composite = correlation-weighted mean of active exposures (~[-1,1]), then
- *  squeezed to the legend range with the illustrative cohort modifiers. */
-export function compositeFor(c: Computed, s: Settings, id: string): number {
-  const ps = c.perRegion[id];
-  if (!ps) return 0;
-  let num = 0, den = 0;
-  for (const fid of s.active) {
-    const r = c.corr[fid]?.r ?? 0;
-    num += ps.exposure[fid] * r;
-    den += Math.abs(r);
+const mean = (a: number[]) => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+const stdev = (a: number[], m: number) =>
+  Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length || 1));
+
+/** Fit a linear regression of incidence on the selected factors across regions.
+ *  Inputs are z-scored so coefficients are standardized betas (single-predictor →
+ *  Pearson r). A "control for" confounder, when set, is added as an extra covariate
+ *  so the other coefficients are adjusted for it. The displayed model name keys off
+ *  the count of *selected* factors: 1 → simple, ≥2 → multiple. */
+function fitModel(
+  s: Settings,
+  ids: string[],
+  exposureArr: Record<string, number[]>,
+  incArr: number[],
+): RegModel {
+  const empty: RegModel = {
+    type: "none",
+    name: "No model — select factors",
+    predictors: [],
+    coef: {},
+    r2: 0,
+    n: ids.length,
+    predStd: {},
+    stdParams: {},
+  };
+  if (s.active.length === 0) return empty;
+
+  // Predictors: the selected factors, plus the confounder as a covariate if set.
+  const predictors = [...s.active];
+  const adjusted = s.controlFor && !predictors.includes(s.controlFor);
+  if (adjusted) predictors.push(s.controlFor);
+
+  // z-score each predictor column and the incidence response.
+  const stdParams: Record<string, { mean: number; std: number }> = {};
+  const zCols: Record<string, number[]> = {};
+  for (const fid of predictors) {
+    const col = exposureArr[fid] ?? [];
+    const m = mean(col);
+    const sd = stdev(col, m) || 1; // guard against a constant column
+    stdParams[fid] = { mean: m, std: sd };
+    zCols[fid] = col.map((v) => (v - m) / sd);
   }
-  if (!den) return 0;
-  let v = num / den;
-  const ageMod = 1 + (s.age - 50) / 180;
-  const sevMod = 0.85 + s.sev * 0.08;
-  v = v * ageMod * sevMod;
-  return Math.max(-0.6, Math.min(0.9, v * 0.75 + 0.05));
+  const incMean = mean(incArr);
+  const incStd = stdev(incArr, incMean) || 1;
+  const yStd = incArr.map((v) => (v - incMean) / incStd);
+
+  // multipleRegression wants row-major X (one predictor row per region).
+  const X = ids.map((_, i) => predictors.map((fid) => zCols[fid][i]));
+  const fit = multipleRegression(X, yStd);
+
+  const coef: Record<string, number> = {};
+  predictors.forEach((fid, j) => (coef[fid] = fit.coef[j] ?? 0));
+
+  // Standardized prediction per region (centered, so ~[-2,2]); intercept ≈ 0.
+  const predStd: Record<string, number> = {};
+  ids.forEach((id, i) => {
+    let yhat = 0;
+    for (const fid of predictors) yhat += coef[fid] * zCols[fid][i];
+    predStd[id] = yhat;
+  });
+
+  const type = s.active.length === 1 ? "simple" : "multiple";
+  const base = type === "simple" ? "Simple Linear Regression" : "Multiple Linear Regression";
+  const name = adjusted ? `${base} · adjusted for ${s.controlFor}` : base;
+  return { type, name, predictors, coef, r2: fit.r2, n: fit.n, predStd, stdParams };
 }
 
 export function dominantFor(c: Computed, s: Settings, id: string): string | null {
+  const m = c.model;
+  if (!m || m.type === "none") return null;
+  const ps = c.perRegion[id];
+  if (!ps) return null;
+  // Largest standardized contribution to the prediction: coefⱼ · z(exposureⱼ).
   let best: string | null = null, bv = -Infinity;
   for (const fid of s.active) {
-    const v = c.perRegion[id].exposure[fid] * (c.corr[fid]?.r ?? 0);
+    const sp = m.stdParams[fid];
+    if (!sp) continue;
+    const z = (ps.exposure[fid] - sp.mean) / sp.std;
+    const v = (m.coef[fid] ?? 0) * z;
     if (v > bv) { bv = v; best = fid; }
   }
   return best;
