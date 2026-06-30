@@ -278,7 +278,16 @@ export function OntarioMap({
       >
         {/* base map — darkened as a group in compare mode so the highlight overlays
             below (siblings, drawn after) stay at full brightness */}
-        <g style={{ filter: dim ? "brightness(0.4) saturate(0.55)" : "none", transition: "filter .35s ease" }}>
+        <g
+          style={{
+            filter: dim
+              ? "brightness(0.4) saturate(0.55)"
+              : hoveredId
+                ? "brightness(0.6) saturate(0.8)"
+                : "none",
+            transition: "filter .35s ease",
+          }}
+        >
           <BaseLayer shapes={shapes} colorMap={colorMap} stroke={stroke} onHover={onHover} onSelect={handleSelect} />
         </g>
         {/* float overlay — lifted, glowing copies on top (the accent "selected" glow is

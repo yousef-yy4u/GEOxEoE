@@ -159,20 +159,17 @@
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
 
-  /* Ontario choropleth: townships float on a pastel glow on hover.
-     Overlay copies are pointer-events:none and scale in place (no translate),
-     so the interactive base path underneath keeps hit-testing — no flicker, no
-     cursor-gap. The floating illusion comes from the glow, as intended. */
+  /* Ontario choropleth: on hover the base group dims and a brightened overlay
+     copy is drawn in place over the hovered township. The overlay is
+     pointer-events:none, so the interactive base path underneath keeps
+     hit-testing — no flicker, no cursor-gap. */
   .twp { transition: fill .25s ease, opacity .2s ease; cursor: pointer; }
+  /* Hover: the overlay copy stays exactly in place and simply brightens, while
+     the base group dims (see ontario-map.tsx), so the region is picked out by
+     contrast rather than motion. */
   .twp-float {
-    transform-box: fill-box;
-    transform-origin: center;
     pointer-events: none;
-    animation: twp-pop .18s ease-out forwards;
-    filter:
-      drop-shadow(0 7px 10px rgb(245 191 215 / .85))
-      drop-shadow(0 16px 28px rgb(171 201 233 / .60))
-      drop-shadow(0 2px 5px rgb(202 239 215 / .70));
+    filter: brightness(1.2) saturate(1.3);
   }
   .twp-selected {
     transform-box: fill-box;
@@ -209,10 +206,6 @@
   .editorial     { @apply font-sans tracking-tight font-bold; }
 }
 
-@keyframes twp-pop {
-  from { transform: translateY(0) scale(1); }
-  to   { transform: translateY(-8%) scale(1.07); }
-}
 @keyframes compare-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
